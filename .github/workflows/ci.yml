@@ -1,0 +1,65 @@
+name: Dotfiles CI
+
+on: push
+
+jobs:
+  test-dotfiles:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.1.7
+
+      - name: Set up Homebrew and install necessary packages
+        run: |
+          # Install Homebrew if not already installed
+          if ! command -v brew &> /dev/null; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+          
+          # Update and install packages
+          brew update
+          brew install direnv nodenv goenv starship
+
+      - name: Set up environment
+        run: |
+          # Create symlinks for dotfiles
+          ln -sf $GITHUB_WORKSPACE/bash/.bashrc ~/.bashrc
+          ln -sf $GITHUB_WORKSPACE/bash/.bash_aliases ~/.bash_aliases
+          ln -sf $GITHUB_WORKSPACE/bash/.bash_profile ~/.bash_profile
+          
+          # Source the .bashrc to load the environment
+          chmod +x ~/.bashrc
+          chmod +x ~/.bash_profile
+          
+          source ~/.bash_profile
+
+      - name: Verify Bash configuration
+        run: |
+          # Ensure that bash_aliases is loaded and aliases work
+          source ~/.bash_profile
+          alias_check=$(alias ll)
+          echo $alias_check
+          if [[ $alias_check != "alias ll='ls -alF'" ]]; then
+            echo "Alias for ll is not working as expected"
+            exit 1
+          fi
+
+      - name: Test Node.js environment
+        run: |
+          # Install nodenv and a Node.js version
+          export PATH="$HOME/.nodenv/bin:$PATH"
+          eval "$(nodenv init -)"
+          nodenv install 20.15.0
+          nodenv global 20.15.0
+          node -v
+
+      - name: Test Go environment
+        run: |
+          # Install goenv and a Go version
+          export GOENV_ROOT="$HOME/.goenv"
+          export PATH="$GOENV_ROOT/bin:$PATH"
+          eval "$(goenv init -)"
+          goenv install 1.23.0
+          goenv global 1.23.0
+          go version
